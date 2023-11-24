@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import facefusion.globals
 from facefusion import wording
-from facefusion.predictor import predict_stream
+
 from facefusion.typing import Frame, Face
 from facefusion.face_analyser import get_one_face
 from facefusion.processors.frame.core import get_frame_processors_modules
@@ -18,6 +18,9 @@ from facefusion.utilities import open_ffmpeg
 from facefusion.vision import normalize_frame_color, read_static_image
 from facefusion.uis.typing import StreamMode, WebcamMode
 from facefusion.uis.core import get_ui_component
+
+from threading import Lock
+shared_resource_lock = Lock()
 
 WEBCAM_IMAGE : Optional[gradio.Image] = None
 WEBCAM_START_BUTTON : Optional[gradio.Button] = None
@@ -81,8 +84,7 @@ def multi_process_capture(source_face: Face, capture : cv2.VideoCapture) -> Gene
 		deque_capture_frames : Deque[Frame] = deque()
 		while True:
 			_, capture_frame = capture.read()
-			if predict_stream(capture_frame):
-				return
+
 			future = executor.submit(process_stream_frame, source_face, capture_frame)
 			futures.append(future)
 			for future_done in [ future for future in futures if future.done() ]:
@@ -112,14 +114,15 @@ def capture_webcam(resolution : str, fps : float) -> cv2.VideoCapture:
 
 
 def process_stream_frame(source_face : Face, temp_frame : Frame) -> Frame:
-	for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
-		if frame_processor_module.pre_process('stream'):
-			temp_frame = frame_processor_module.process_frame(
-				source_face,
-				None,
-				temp_frame
-			)
-	return temp_frame
+	with shared_resource_lock:
+		for frame_processor_module in get_frame_processors_modules(facefusion.globals.frame_processors):
+			if frame_processor_module.pre_process('stream'):
+				temp_frame = frame_processor_module.process_frame(
+					source_face,
+					None,
+					temp_frame
+				)
+		return temp_frame
 
 
 def open_stream(mode : StreamMode, resolution : str, fps : float) -> subprocess.Popen[bytes]:

@@ -8,7 +8,7 @@ import onnxruntime
 import facefusion.globals
 from facefusion import wording
 from facefusion.core import update_status
-from facefusion.face_analyser import get_many_faces, clear_face_analyser
+from facefusion.face_analyser import get_many_faces,get_one_face, clear_face_analyser
 from facefusion.typing import Face, Frame, Matrix, Update_Process, ProcessMode, ModelValue, OptionsWithModel
 from facefusion.utilities import conditional_download, resolve_relative_path, is_image, is_video, is_file, is_download_done
 from facefusion.vision import read_image, read_static_image, write_image
@@ -201,10 +201,14 @@ def blend_frame(temp_frame : Frame, paste_frame : Frame) -> Frame:
 
 
 def process_frame(source_face : Face, reference_face : Face, temp_frame : Frame) -> Frame:
+	'''
 	many_faces = get_many_faces(temp_frame)
 	if many_faces:
 		for target_face in many_faces:
 			temp_frame = enhance_face(target_face, temp_frame)
+	'''
+	one_face = get_one_face(temp_frame)
+	temp_frame = enhance_face(one_face, temp_frame)
 	return temp_frame
 
 
